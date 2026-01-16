@@ -9,6 +9,7 @@ BACKGROUND_COLOR = (30, 30, 30)
 
 from player import Player
 from enemy import Enemy
+from ui import VirtualJoystick, TouchButton
 
 class Game:
     def __init__(self):
@@ -35,6 +36,13 @@ class Game:
         self.score = 0
         self.font = pygame.font.Font(None, 36)
         self.game_over_font = pygame.font.Font(None, 72)
+        
+        # UI controls
+        # Joystick bottom left
+        self.joystick = VirtualJoystick(100, SCREEN_HEIGHT - 100, 60)
+        # Fire button bottom right
+        self.fire_button = TouchButton(SCREEN_WIDTH - 100, SCREEN_HEIGHT - 100, 40)
+        self.fire_cooldown = 0 # To prevent stream of bullets from rapid update loop with button held
 
     def reset_game(self):
         self.game_over = False
@@ -70,7 +78,26 @@ class Game:
         if self.game_over:
             return
 
-        self.all_sprites.update()
+        # Update UI inputs
+        events = pygame.event.get() # Actually we handle events in handle_events, but UI needs 'continuous' state
+        # The joystick.update checks pygame.mouse.get_pressed(), so just calling it is fine.
+        self.joystick.update(None)
+        self.fire_button.update(None)
+
+        # Logic for firing from button
+        if self.fire_button.active and self.fire_cooldown == 0:
+             bullet = self.player.shoot()
+             self.all_sprites.add(bullet)
+             self.bullets.add(bullet)
+             self.fire_cooldown = 15 # Delay frames
+        
+        if self.fire_cooldown > 0:
+            self.fire_cooldown -= 1
+
+        # Pass joystick vector to player
+        self.player.update(self.joystick.input_vector)
+        self.bullets.update()
+        self.enemies.update()
         
         # Bullet hits Enemy
         hits = pygame.sprite.groupcollide(self.enemies, self.bullets, True, True)
@@ -90,6 +117,11 @@ class Game:
         # Draw Score
         score_surface = self.font.render(f"Score: {self.score}", True, (255, 255, 255))
         self.screen.blit(score_surface, (10, 10))
+        
+        # Draw UI
+        if not self.game_over:
+            self.joystick.draw(self.screen)
+            self.fire_button.draw(self.screen)
         
         if self.game_over:
             game_over_surface = self.game_over_font.render("GAME OVER", True, (255, 0, 0))

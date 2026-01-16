@@ -19,16 +19,18 @@ class Player(pygame.sprite.Sprite):
         self.screen_height = screen_height
         self.angle = 0
 
-    def update(self):
-        self.input()
+    def update(self, move_vector=None, shoot_trigger=False):
+        self.input(move_vector)
         self.rotate()
         self.constrain()
+        return shoot_trigger
 
-    def input(self):
+    def input(self, external_vector=None):
         keys = pygame.key.get_pressed()
         move_x = 0
         move_y = 0
 
+        # Keyboard Input
         if keys[pygame.K_UP]:
             move_y = -1
         if keys[pygame.K_DOWN]:
@@ -38,11 +40,22 @@ class Player(pygame.sprite.Sprite):
         if keys[pygame.K_RIGHT]:
             move_x = 1
 
+        # Combine with external vector (Virtual Joystick)
+        if external_vector:
+            move_x += external_vector.x
+            move_y += external_vector.y
+        
+        # Apply movement
         if move_x != 0 or move_y != 0:
-            move_vector = pygame.math.Vector2(move_x, move_y)
-            if move_vector.length() > 0:
-                move_vector = move_vector.normalize()
-            self.pos += move_vector * self.speed
+            move_vector_final = pygame.math.Vector2(move_x, move_y)
+            # Clamp length to 1 to avoid double speed if using both inputs (though unlikely)
+            if move_vector_final.length() > 1:
+                move_vector_final = move_vector_final.normalize()
+            elif move_vector_final.length() > 0 and not external_vector:
+                 # Normalize keyboard input which is always length 1 or 1.414
+                 move_vector_final = move_vector_final.normalize()
+            
+            self.pos += move_vector_final * self.speed
             self.rect.center = self.pos
 
     def constrain(self):
